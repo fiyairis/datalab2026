@@ -19,7 +19,7 @@
  * Difficulty: 1
  */
 int bitAnd(int x, int y) {
-    return 2;
+    return ~(~x|~y);
 }
 
 /*
@@ -30,7 +30,7 @@ int bitAnd(int x, int y) {
  *   Difficulty: 1
  */
 int bitXor(int x, int y) {
-    return 2;
+    return ~(x&y)&~(~x&~y);
 }
 
 /*
@@ -50,7 +50,13 @@ int bitXor(int x, int y) {
  *   1 if x and y have the same sign , 0 otherwise.
  */
 int samesign(int x, int y) {
-    return 2;
+    if(!x){
+        return !y;
+    }
+    if(!y){
+        return 0;
+    }
+    return !((x^y)>>31);
 }
 
 /*
@@ -63,7 +69,28 @@ int samesign(int x, int y) {
  *   Difficulty: 4
  */
 int logtwo(int v) {
-    return 2;
+    int a, b, c, d, e;
+    int mask16 = (0xFF << 8) | 0xFF;
+
+    a = v > mask16;
+    v = v >> (a << 4);
+
+    b = v > 0xFF;
+    v = v >> (b << 3);
+
+    c = v > 0xF;
+    v = v >> (c << 2);
+
+    d = v > 0x3;
+    v = v >> (d << 1);
+
+    e = v > 0x1;
+
+    return (a << 4) |
+           (b << 3) |
+           (c << 2) |
+           (d << 1) |
+           e;
 }
 
 /*
@@ -76,7 +103,15 @@ int logtwo(int v) {
  *    Difficulty: 2
  */
 int byteSwap(int x, int n, int m) {
-    return 2;
+     int ns = n << 3;
+    int ms = m << 3;
+
+    int nb = (x >> ns) & 0xFF;
+    int mb = (x >> ms) & 0xFF;
+
+    int diff = nb ^ mb;
+
+    return x ^ ((diff << ns) | (diff << ms));
 }
 
 /*
@@ -88,7 +123,16 @@ int byteSwap(int x, int n, int m) {
  *   Difficulty: 3
  */
 unsigned reverse(unsigned v) {
-    return 2;
+    unsigned result = 0;
+    int i = 32;
+
+    while (i) {
+        result = (result << 1) | (v & 1);
+        v = v >> 1;
+        i = i - 1;
+    }
+
+    return result;
 }
 
 /*
@@ -100,7 +144,11 @@ unsigned reverse(unsigned v) {
  *   Difficulty: 3
  */
 int logicalShift(int x, int n) {
-    return 2;
+    int mask;
+
+    mask = ~(((1 << 31) >> n) << 1);
+
+    return (x >> n) & mask;
 }
 
 /*
@@ -112,9 +160,34 @@ int logicalShift(int x, int n) {
  *   Difficulty: 4
  */
 int leftBitCount(int x) {
-    return 2;
-}
+    int y = ~x;
+    int count = 0;
+    int t;
 
+    t = !(y >> 16) << 4;
+    count = count + t;
+    y = y << t;
+
+    t = !(y >> 24) << 3;
+    count = count + t;
+    y = y << t;
+
+    t = !(y >> 28) << 2;
+    count = count + t;
+    y = y << t;
+
+    t = !(y >> 30) << 1;
+    count = count + t;
+    y = y << t;
+
+    t = !(y >> 31);
+    count = count + t;
+    y = y << t;
+
+    count = count + !y;
+
+    return count;
+}
 /*
  * float_i2f - Return bit-level equivalent of expression (float) x
  *   Result is returned as unsigned int, but it is to be interpreted as
@@ -124,7 +197,55 @@ int leftBitCount(int x) {
  *   Difficulty: 4
  */
 unsigned float_i2f(int x) {
-    return 2;
+    unsigned ux = x;
+    unsigned sign;
+    unsigned exp;
+    unsigned frac;
+    unsigned sig;
+    unsigned rem;
+    unsigned half;
+    int e = 31;
+    int shift;
+
+    if (x == 0)
+        return 0;
+
+    sign = ux & 0x80000000;
+
+    if (sign)
+        ux = -ux;
+
+    while (!(ux >> e))
+        e = e - 1;
+
+    exp = e + 127;
+
+    if (e <= 23) {
+        frac = (ux << (23 - e)) & 0x7FFFFF;
+    }
+    else {
+        shift = e - 23;
+
+        sig = ux >> shift;
+        rem = ux & ((1 << shift) - 1);
+        half = 1 << (shift - 1);
+
+        if (rem > half)
+            sig = sig + 1;
+        else if (rem == half) {
+            if (sig & 1)
+                sig = sig + 1;
+        }
+
+        if (sig >> 24) {
+            exp = exp + 1;
+            sig = sig >> 1;
+        }
+
+        frac = sig & 0x7FFFFF;
+    }
+
+    return sign | (exp << 23) | frac;
 }
 
 /*
@@ -139,7 +260,26 @@ unsigned float_i2f(int x) {
  *   Difficulty: 4
  */
 unsigned floatScale2(unsigned uf) {
-    return 2;
+    unsigned sign = uf & 0x80000000;
+    unsigned exp = uf & 0x7F800000;
+    unsigned frac = uf & 0x007FFFFF;
+
+    /* NaN 或无穷大 */
+    if (exp == 0x7F800000)
+        return uf;
+
+    /* 0 或非规格化数 */
+    if (exp == 0)
+        return sign | (frac << 1);
+
+    /* 规格化数：指数 + 1 */
+    exp = exp + 0x00800000;
+
+    /* 溢出到无穷大 */
+    if (exp == 0x7F800000)
+        return sign | exp;
+
+    return sign | exp | frac;
 }
 
 /*
@@ -156,7 +296,50 @@ unsigned floatScale2(unsigned uf) {
  *   Difficulty: 3
  */
 int float64_f2i(unsigned uf1, unsigned uf2) {
-    return 2;
+    unsigned sign;
+    unsigned exp;
+    unsigned hi;
+    unsigned value;
+    int e;
+
+    sign = uf2 >> 31;
+    exp = (uf2 >> 20) & 0x7FF;
+
+    /* NaN / infinity */
+    if (exp >= 0x7FF)
+    return 0x80000000;
+
+    e = exp - 1023;
+
+    /* 绝对值小于 1，向 0 截断 */
+    if (e < 0)
+        return 0;
+
+    /* 超出 32 位 int 范围 */
+    if (e > 30)
+        return 0x80000000;
+
+    /*
+     * double 的有效数字是：
+     * 1.fraction
+     *
+     * uf2 低 20 位 = fraction 的高 20 位
+     * 再补上隐藏的 leading 1
+     */
+    hi = (uf2 & 0xFFFFF) | 0x100000;
+
+    if (e <= 20) {
+        value = hi >> (20 - e);
+    }
+    else {
+        value = (hi << (e - 20)) |
+                (uf1 >> (52 - e));
+    }
+
+    if (sign)
+        return -value;
+
+    return value;
 }
 
 /*
@@ -173,5 +356,14 @@ int float64_f2i(unsigned uf1, unsigned uf2) {
  *   Difficulty: 4
  */
 unsigned floatPower2(int x) {
-    return 2;
+    if (x < -149)
+        return 0;
+
+    if (x < -126)
+        return 1 << (x + 149);
+
+    if (x <= 127)
+        return (x + 127) << 23;
+
+    return 0x7F800000;
 }
